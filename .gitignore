@@ -1,0 +1,7 @@
+__pycache__/
+.DS_Store
+.streamlit/secrets.toml
+*.pyc
+tmp_verify/
+data/usage_log.jsonl
+data/customers.json
