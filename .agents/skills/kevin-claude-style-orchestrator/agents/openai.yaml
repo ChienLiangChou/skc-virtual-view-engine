@@ -1,0 +1,7 @@
+interface:
+  display_name: "Kevin Claude Style Orchestrator"
+  short_description: "Help with Kevin Claude Style Orchestrator tasks"
+  default_prompt: "Use $kevin-claude-style-orchestrator to plan and execute this multi-step technical task with a minimal safe change."
+
+policy:
+  allow_implicit_invocation: false
