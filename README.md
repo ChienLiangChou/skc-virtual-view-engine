@@ -48,6 +48,7 @@ Important limitations for this MVP:
 
 ## Required services
 
+- Maps Static API
 - Maps JavaScript API
 - Geocoding API
 - Elevation API
@@ -71,6 +72,12 @@ Required secrets:
 ## Customer control
 
 - Each client should use a stable `customer_id`
+- Recommended `customer_id` patterns:
+  - `client-a`
+  - `zhangyan`
+  - `plazamidtown-7f-demo`
+- Use only lowercase letters, numbers, `-`, and `_`
+- Do not change the same client's `customer_id` between sessions or their usage history will split
 - Usage is stored in Postgres when `DATABASE_URL` is configured
 - Local fallback files are `data/usage_log.jsonl` and `data/customers.json`
 - The admin panel appears when `SKC_ADMIN_CODE` is set and entered correctly in the sidebar
@@ -78,6 +85,8 @@ Required secrets:
 ## How to manage usage
 
 1. Give each client a fixed link with their own `customer_id`
+   Example:
+   `https://skc-virtual-view-engine.streamlit.app/?customer_id=client-a`
 2. Open the app yourself and enter your `Admin code`
 3. Use the Admin Panel to review:
    - total events
@@ -93,3 +102,5 @@ Required secrets:
 https://your-fixed-subdomain.streamlit.app/?customer_id=client-a
 https://your-fixed-subdomain.streamlit.app/?customer_id=client-b
 ```
+
+When a client opens a shared link that already contains `customer_id`, the app will lock that field so they do not accidentally change it and split their usage history.

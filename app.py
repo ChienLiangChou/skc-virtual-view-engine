@@ -1429,16 +1429,29 @@ if "logged_events" not in st.session_state:
     st.session_state.logged_events = set()
 
 query_customer_id = st.query_params.get("customer_id", "")
-default_customer_id = sanitize_customer_id(str(query_customer_id)) or "demo-customer"
+linked_customer_id = sanitize_customer_id(str(query_customer_id))
+default_customer_id = linked_customer_id or "demo-customer"
 
 with st.sidebar:
     st.header("客戶存取")
-    raw_customer_id = st.text_input("Customer ID", default_customer_id)
-    customer_id = sanitize_customer_id(raw_customer_id)
-    customer_name = st.text_input("客戶名稱（選填）", "")
-    if raw_customer_id and raw_customer_id != customer_id:
-        st.warning("Customer ID 已自動轉成小寫，只保留英數字、`-`、`_`。")
-    st.caption("建議你每個客戶固定用一個 customer_id，之後就能看 usage，也能單獨 pause。")
+    if linked_customer_id:
+        raw_customer_id = st.text_input("Customer ID", linked_customer_id, disabled=True)
+        customer_id = linked_customer_id
+        st.caption("這個連結已綁定專屬 customer_id，客戶不需要修改。")
+    else:
+        raw_customer_id = st.text_input("Customer ID", default_customer_id)
+        customer_id = sanitize_customer_id(raw_customer_id)
+        if raw_customer_id and raw_customer_id != customer_id:
+            st.warning("Customer ID 已自動轉成小寫，只保留英數字、`-`、`_`。")
+        st.caption("建議你每個客戶固定用一個 customer_id，之後就能看 usage，也能單獨 pause。")
+    with st.expander("customer_id 命名建議", expanded=False):
+        st.markdown(
+            "- 一個客戶固定一個 ID，不要每次換新。\n"
+            "- 建議格式：`client-a`、`zhangyan`、`plazamidtown-7f-demo`。\n"
+            "- 只用英數字、`-`、`_`，避免空格與中文。\n"
+            "- 如果是正式客戶，建議用你自己 CRM 裡穩定不變的代號。"
+        )
+    customer_name = st.text_input("客戶名稱 / email（選填）", "")
 
     if customer_id:
         st.query_params["customer_id"] = customer_id
