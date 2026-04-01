@@ -104,3 +104,11 @@ https://your-fixed-subdomain.streamlit.app/?customer_id=client-b
 ```
 
 When a client opens a shared link that already contains `customer_id`, the app will lock that field so they do not accidentally change it and split their usage history.
+
+## Daily monitoring
+
+- GitHub Actions runs `.github/workflows/daily-healthcheck.yml`
+- The workflow checks the deployed Streamlit app every day at 9:00 AM Toronto time
+- It runs at both `13:00` and `14:00` UTC, then the script keeps only the real 9:00 AM Toronto run so daylight saving time does not shift the schedule
+- On failure, GitHub Actions opens or updates a GitHub issue with the reason and uploads a screenshot artifact
+- On recovery, the workflow closes the open failure issue automatically
