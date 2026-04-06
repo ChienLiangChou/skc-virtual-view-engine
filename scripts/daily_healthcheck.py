@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -38,6 +38,7 @@ INTERACTIVE_FRAME_MARKERS = [
     "互動衛星圖",
     "目前街景相機距建物約",
 ]
+STATUS_FILE_NAME = "status.txt"
 
 
 def current_local_hour() -> int:
@@ -52,11 +53,13 @@ def build_url() -> str:
 def write_summary(status: str, message: str) -> None:
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     summary_path = ARTIFACT_DIR / "summary.md"
+    status_path = ARTIFACT_DIR / STATUS_FILE_NAME
+    status_path.write_text(status + "\n", encoding="utf-8")
     summary_path.write_text(
         f"# Daily health check\n\n"
         f"- status: `{status}`\n"
         f"- app_url: `{build_url()}`\n"
-        f"- checked_at_utc: `{datetime.now(UTC).isoformat()}`\n\n"
+        f"- checked_at_utc: `{datetime.now(timezone.utc).isoformat()}`\n\n"
         f"{message}\n",
         encoding="utf-8",
     )
@@ -74,13 +77,19 @@ def success(message: str) -> None:
     sys.exit(0)
 
 
+def skip(message: str) -> None:
+    write_summary("skipped", message)
+    print(message)
+    sys.exit(0)
+
+
 def maybe_skip_for_timezone() -> None:
     if not REQUIRE_LOCAL_9AM:
         return
 
     hour = current_local_hour()
     if hour != EXPECTED_LOCAL_HOUR:
-        success(
+        skip(
             f"Skipped run because current local hour in {HEALTHCHECK_TIMEZONE} is {hour}, "
             f"not {EXPECTED_LOCAL_HOUR}. This is expected when the workflow runs twice to handle DST."
         )

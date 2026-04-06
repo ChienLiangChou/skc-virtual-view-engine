@@ -28,6 +28,7 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Run deployed app health check
+        id: healthcheck
         run: python scripts/daily_healthcheck.py
         env:
           APP_URL: https://skc-virtual-view-engine.streamlit.app
@@ -36,6 +37,17 @@ jobs:
           EXPECTED_LOCAL_HOUR: "9"
           REQUIRE_LOCAL_9AM: "1"
           HEALTHCHECK_ARTIFACT_DIR: healthcheck-artifacts
+
+      - name: Read health check status
+        if: always()
+        id: healthcheck_status
+        run: |
+          if [ -f healthcheck-artifacts/status.txt ]; then
+            STATUS="$(tr -d '\r\n' < healthcheck-artifacts/status.txt)"
+          else
+            STATUS="missing"
+          fi
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
       - name: Upload health check artifacts
         if: always()
@@ -82,7 +94,7 @@ jobs:
             }
 
       - name: Close open failure issue after recovery
-        if: success()
+        if: success() && steps.healthcheck_status.outputs.status == 'healthy'
         uses: actions/github-script@v7
         with:
           script: |
