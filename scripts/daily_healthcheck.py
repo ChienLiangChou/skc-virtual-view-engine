@@ -14,6 +14,7 @@ HEALTHCHECK_TIMEZONE = os.getenv("HEALTHCHECK_TIMEZONE", "America/Toronto")
 EXPECTED_LOCAL_HOUR = int(os.getenv("EXPECTED_LOCAL_HOUR", "9"))
 REQUIRE_LOCAL_9AM = os.getenv("REQUIRE_LOCAL_9AM", "1") == "1"
 ARTIFACT_DIR = Path(os.getenv("HEALTHCHECK_ARTIFACT_DIR", "healthcheck-artifacts"))
+HEALTHCHECK_TIMEOUT_SECONDS = int(os.getenv("HEALTHCHECK_TIMEOUT_SECONDS", "300"))
 
 FAILURE_MARKERS = [
     "REQUEST_DENIED",
@@ -38,6 +39,11 @@ INTERACTIVE_FRAME_MARKERS = [
     "互動衛星圖",
     "目前街景相機距建物約",
 ]
+STREAMLIT_SLEEP_MARKERS = [
+    "This app has gone to sleep due to inactivity",
+    "Would you like to wake it back up?",
+]
+WAKE_UP_BUTTON_LABEL = "Yes, get this app back up!"
 STATUS_FILE_NAME = "status.txt"
 
 
@@ -95,6 +101,43 @@ def maybe_skip_for_timezone() -> None:
         )
 
 
+def read_body_text(target, timeout=5000) -> str:
+    return target.locator("body").inner_text(timeout=timeout)
+
+
+def maybe_wake_sleeping_app(page) -> bool:
+    page_text = read_body_text(page)
+    if not all(marker in page_text for marker in STREAMLIT_SLEEP_MARKERS):
+        return False
+
+    page.get_by_role("button", name=WAKE_UP_BUTTON_LABEL).click(timeout=10000)
+    page.wait_for_timeout(5000)
+    return True
+
+
+def find_frame_with_markers(page, required_markers):
+    for frame in page.frames:
+        try:
+            frame_text = read_body_text(frame)
+        except Exception:
+            continue
+
+        if all(marker in frame_text for marker in required_markers):
+            return frame, frame_text
+
+    return None, ""
+
+
+def collect_frame_texts(page) -> list[str]:
+    frame_texts = []
+    for frame in page.frames:
+        try:
+            frame_texts.append(read_body_text(frame))
+        except Exception:
+            continue
+    return frame_texts
+
+
 def main() -> None:
     maybe_skip_for_timezone()
 
@@ -107,26 +150,26 @@ def main() -> None:
         page = browser.new_page(viewport={"width": 1440, "height": 1600})
         page.goto(target_url, wait_until="domcontentloaded", timeout=120000)
 
-        deadline = time.time() + 90
+        deadline = time.time() + HEALTHCHECK_TIMEOUT_SECONDS
+        wake_attempted = False
         while time.time() < deadline:
-            if len(page.frames) < 4:
-                page.wait_for_timeout(2000)
-                continue
+            if maybe_wake_sleeping_app(page):
+                wake_attempted = True
 
-            main_frame = page.frames[2]
-            interactive_frame = page.frames[3]
-            main_text = main_frame.locator("body").inner_text(timeout=5000)
-            interactive_text = interactive_frame.locator("body").inner_text(timeout=5000)
-            combined_text = f"{main_text}\n{interactive_text}"
+            frame_texts = collect_frame_texts(page)
+            combined_text = "\n".join(frame_texts)
 
             if any(marker in combined_text for marker in FAILURE_MARKERS):
                 page.screenshot(path=str(screenshot_path), full_page=True)
                 browser.close()
                 fail(f"Health check failed. Found failure marker in app output: {combined_text[:1200]}")
 
-            if all(marker in main_text for marker in MAIN_FRAME_MARKERS) and all(
-                marker in interactive_text for marker in INTERACTIVE_FRAME_MARKERS
-            ):
+            main_frame, main_text = find_frame_with_markers(page, MAIN_FRAME_MARKERS)
+            interactive_frame, interactive_text = find_frame_with_markers(
+                page, INTERACTIVE_FRAME_MARKERS
+            )
+
+            if main_frame and interactive_frame:
                 page.screenshot(path=str(screenshot_path), full_page=True)
                 browser.close()
                 success("Health check passed. Core UI and preview content loaded successfully.")
@@ -135,7 +178,10 @@ def main() -> None:
 
         page.screenshot(path=str(screenshot_path), full_page=True)
         browser.close()
-        fail("Health check failed. Timed out before the deployed app reached a healthy state.")
+        timeout_message = "Health check failed. Timed out before the deployed app reached a healthy state."
+        if wake_attempted:
+            timeout_message += " The app was woken from Streamlit sleep, but it still did not finish loading in time."
+        fail(timeout_message)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ jobs:
           HEALTHCHECK_CUSTOMER_ID: system-healthcheck
           HEALTHCHECK_TIMEZONE: America/Toronto
           EXPECTED_LOCAL_HOUR: "9"
-          REQUIRE_LOCAL_9AM: "1"
+          REQUIRE_LOCAL_9AM: ${{ github.event_name == 'schedule' && '1' || '0' }}
           HEALTHCHECK_ARTIFACT_DIR: healthcheck-artifacts
 
       - name: Read health check status
